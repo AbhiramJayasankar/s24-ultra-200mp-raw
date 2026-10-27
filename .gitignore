@@ -1,0 +1,14 @@
+.gradle/
+.cxx/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+captures/
+bench/data/
+bench/out/
+
+# Python
+__pycache__/
+*.pyc

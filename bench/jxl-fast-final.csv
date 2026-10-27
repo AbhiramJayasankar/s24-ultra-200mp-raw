@@ -1,0 +1,7 @@
+name,effort,predictor,rct,learning,prev,group,global,local,palette,speed,patches
+fast-e4-r40-d2,4,-1,40,2,0,1,95,80,1024,2,-1
+fast-e5-r17-d2,5,-1,17,2,0,1,95,80,1024,2,-1
+fast-e5-r40-d2,5,-1,40,2,0,1,95,80,1024,2,-1
+fast-e6-r17-d2,6,-1,17,2,0,1,95,80,1024,2,-1
+fast-e6-r40-d2,6,-1,40,2,0,1,95,80,1024,2,-1
+fast-e7-r17-d2,7,-1,17,2,0,1,95,80,1024,2,-1

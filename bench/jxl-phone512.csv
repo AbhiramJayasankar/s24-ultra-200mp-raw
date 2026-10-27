@@ -1,0 +1,5 @@
+name,effort,predictor,rct,learning,prev,group,global,local,palette,speed,patches
+e2-512,2,-1,-1,-1,-1,2,-1,-1,-1,0,-1
+max512,7,5,40,20,2,2,0,0,0,0,0
+near512,7,5,40,0.5,2,2,0,0,0,0,0
+e2-after,2,-1,-1,-1,-1,2,-1,-1,-1,0,-1

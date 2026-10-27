@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.22)
+project(jxl_tile_bench LANGUAGES C CXX)
+# Reuse the app's dependency switches, optimization and ARM scheduling flags.
+add_subdirectory(../app/src/main/cpp app-native EXCLUDE_FROM_ALL)
+add_executable(jxl_tile_bench jxl_tile_bench.cc)
+target_compile_features(jxl_tile_bench PRIVATE cxx_std_17)
+target_link_libraries(jxl_tile_bench PRIVATE jxl)
+if(MSVC)
+  target_compile_options(jxl_tile_bench PRIVATE /O2)
+else()
+  target_compile_options(jxl_tile_bench PRIVATE -O3 -ffunction-sections -fdata-sections)
+  target_link_options(jxl_tile_bench PRIVATE -Wl,--gc-sections)
+endif()
+if(ANDROID)
+  target_compile_options(jxl_tile_bench PRIVATE -mtune=cortex-x4)
+  add_custom_command(TARGET jxl_tile_bench POST_BUILD
+      COMMAND "${CMAKE_STRIP}" --strip-debug "$<TARGET_FILE:jxl_tile_bench>")
+endif()

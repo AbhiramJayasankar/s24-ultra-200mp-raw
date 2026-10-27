@@ -1,0 +1,7 @@
+name,effort,predictor,rct,learning,prev,group,global,local,palette,speed,patches
+e1,1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1
+e2,2,-1,-1,-1,-1,-1,-1,-1,-1,0,-1
+app,7,5,40,1,2,1,0,0,0,0,0
+max256,7,5,40,20,2,1,0,0,0,0,0
+fastdecode,6,-1,17,2,0,1,95,80,1024,2,-1
+e2-after,2,-1,-1,-1,-1,-1,-1,-1,-1,0,-1

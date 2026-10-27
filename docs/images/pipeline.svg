@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-label="Pipeline: 16-cell RAW10 readout, Lumdir reconstruction, noise-matched codes, lossless JPEG XL DNG">
+  <style>
+    .h{font:600 44px 'Roboto Condensed','Arial Narrow',sans-serif;letter-spacing:-0.5px}
+    .sub{font:400 19px 'Roboto','Segoe UI',Helvetica,Arial,sans-serif;fill:#8C9399}
+    .t{font:600 21px 'Roboto Condensed','Arial Narrow',sans-serif}
+    .s{font:400 15px 'Roboto','Segoe UI',Helvetica,Arial,sans-serif;fill:#8C9399}
+  </style>
+  <rect width="1200" height="300" rx="18" fill="#000"/>
+  <text x="72" y="78" class="h" fill="#ECE8DF">200MP RAW for the Galaxy S24 Ultra</text>
+  <text x="72" y="110" class="sub">The full 16320 × 12240 sensor readout, rebuilt on the phone and saved as a DNG for Lightroom.</text>
+  <line x1="72" y1="128" x2="1128" y2="128" stroke="#1E2124" stroke-width="1"/>
+  <g>
+    <rect x="72" y="150" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="83" y="150" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="94" y="150" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="105" y="150" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="116" y="150" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="127" y="150" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="138" y="150" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="149" y="150" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="72" y="161" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="83" y="161" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="94" y="161" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="105" y="161" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="116" y="161" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="127" y="161" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="138" y="161" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="149" y="161" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="72" y="172" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="83" y="172" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="94" y="172" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="105" y="172" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="116" y="172" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="127" y="172" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="138" y="172" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="149" y="172" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="72" y="183" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="83" y="183" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="94" y="183" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="105" y="183" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="116" y="183" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="127" y="183" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="138" y="183" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="149" y="183" width="9.5" height="9.5" rx="1.5" fill="#4E6E9E"/>
+    <rect x="72" y="194" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="83" y="194" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="94" y="194" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="105" y="194" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="116" y="194" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="127" y="194" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="138" y="194" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="149" y="194" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="72" y="205" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="83" y="205" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="94" y="205" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="105" y="205" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="116" y="205" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="127" y="205" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="138" y="205" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="149" y="205" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="72" y="216" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="83" y="216" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="94" y="216" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="105" y="216" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="116" y="216" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="127" y="216" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="138" y="216" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="149" y="216" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="72" y="227" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="83" y="227" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="94" y="227" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="105" y="227" width="9.5" height="9.5" rx="1.5" fill="#B4554A"/>
+    <rect x="116" y="227" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="127" y="227" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="138" y="227" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+    <rect x="149" y="227" width="9.5" height="9.5" rx="1.5" fill="#5E8A5A"/>
+  </g>
+  <text x="72" y="258" class="s">4×4 colour blocks</text>
+  <path d="M176 182 h34 m-8 -6 l8 6 l-8 6" stroke="#8C9399" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(228,0)">
+    <text x="0" y="168" class="t" fill="#ECE8DF">Lumdir rebuild</text>
+    <text x="0" y="196" class="s">full-resolution luma,</text>
+    <text x="0" y="218" class="s">directional colour</text>
+  </g>
+  <path d="M432 182 h34 m-8 -6 l8 6 l-8 6" stroke="#8C9399" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(484,0)">
+    <text x="0" y="168" class="t" fill="#ECE8DF">Noise-matched codes</text>
+    <text x="0" y="196" class="s">12-bit, steps at</text>
+    <text x="0" y="218" class="s">0.5σ of sensor noise</text>
+  </g>
+  <path d="M712 182 h34 m-8 -6 l8 6 l-8 6" stroke="#8C9399" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(764,0)">
+    <text x="0" y="168" class="t" fill="#D9A441">JPEG XL DNG 1.7</text>
+    <text x="0" y="196" class="s">lossless tiles, about 225 MB,</text>
+    <text x="0" y="218" class="s">~150–195 MB after charging</text>
+  </g>
+  <text x="1128" y="258" class="s" text-anchor="end">≈ 19 s per photo on the phone</text>
+</svg>

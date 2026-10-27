@@ -1,0 +1,4 @@
+name,effort,predictor,rct,learning,prev,group,global,local,palette,speed,patches
+max512-l10,7,5,40,10,2,2,0,0,0,0,0
+max512-l15,7,5,40,15,2,2,0,0,0,0,0
+max512-l20,7,5,40,20,2,2,0,0,0,0,0

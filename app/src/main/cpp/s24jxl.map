@@ -1,0 +1,5 @@
+{
+  global: Java_dev_s24cam_dng_JxlNative_encodeNative;
+          Java_dev_s24cam_dng_JxlNative_decodeNative;
+  local: *;
+};

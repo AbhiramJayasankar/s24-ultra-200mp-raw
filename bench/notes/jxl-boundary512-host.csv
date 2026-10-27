@@ -1,0 +1,4 @@
+name,tile,tiles,repetitions,bytes,estimated_dng_MB,encode_ms_MP,decode_ms_MP,effort,predictor,rct,learning,prev,group,global,local,palette,speed,patches
+max512-l10,512,60,1,14694875,188.2699,550.3887,187.9469,7,5,40,10.0000,2,2,0,0,0,0,0
+max512-l15,512,60,1,14670365,187.9562,604.4617,184.9756,7,5,40,15.0000,2,2,0,0,0,0,0
+max512-l20,512,60,1,14646983,187.6569,658.3999,184.7981,7,5,40,20.0000,2,2,0,0,0,0,0
