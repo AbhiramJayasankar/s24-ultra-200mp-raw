@@ -46,6 +46,8 @@ final class HighResCamera {
     private CameraCaptureSession session;
     private CameraCharacteristics chars;
     private Surface previewSurface;
+    private android.graphics.SurfaceTexture previewTexture;
+    private int previewWidth, previewHeight;
     private final List<ImageReader> readers = new ArrayList<>();
     private ImageReader rawReader;
     private boolean torch;
@@ -64,11 +66,18 @@ final class HighResCamera {
         handler = new Handler(thread.getLooper());
     }
 
-    void open(Mode mode, Surface preview) {
+    /**
+     * @param texture the viewfinder's texture; its buffer size is set to width x height
+     *     right before the stream is configured (see {@link #startSession}).
+     */
+    void open(Mode mode, Surface preview, android.graphics.SurfaceTexture texture, int width, int height) {
         handler.post(() -> {
             closeInternal();
             this.mode = mode;
             this.previewSurface = preview;
+            this.previewTexture = texture;
+            this.previewWidth = width;
+            this.previewHeight = height;
             try {
                 chars = manager.getCameraCharacteristics(mode.cameraId);
                 manager.openCamera(mode.cameraId, new CameraDevice.StateCallback() {
@@ -97,6 +106,10 @@ final class HighResCamera {
             listener.onError("Samsung camera parameters were refused, so high-res modes are unavailable.");
             return;
         }
+        // TextureView silently resets its buffer to the view size (portrait) whenever it
+        // rebuilds its layer, e.g. after the app comes back. The stream takes whatever
+        // size the buffer has now, so set it here, not when the view appears.
+        if (previewTexture != null) previewTexture.setDefaultBufferSize(previewWidth, previewHeight);
         List<OutputConfiguration> outs = new ArrayList<>();
         outs.add(SamsungCam.output(previewSurface, SamsungCam.OPT_PREVIEW));
         rawReader = null;

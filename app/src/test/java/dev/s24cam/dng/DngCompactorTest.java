@@ -4,7 +4,7 @@ import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import java.io.*;
 import java.nio.*;
-import java.nio.channels.FileChannel;
+import java.nio.channels.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,7 +35,7 @@ public class DngCompactorTest {
     File fixture(int width,int height,int effort,boolean exif) throws Exception {
         File f=folder.newFile(); fixture(f,width,height,effort,exif); return f;
     }
-    static void fixture(File f,int width,int height,int effort,boolean exif) throws Exception {
+    public static void fixture(File f,int width,int height,int effort,boolean exif) throws Exception {
         DngParams p=DngWriterTest.params(2,true);p.width=width;p.height=height;p.software="S24 HighRes 0.4.1";p.iso=100000;
         if(!exif) { p.iso=0;p.exposureTimeSec=p.fNumber=p.focalLengthMm=0;p.captureTimeMillis=0; }
         RowSource source=new RowSource() {
@@ -92,6 +92,72 @@ public class DngCompactorTest {
     @Test public void singleTileInlineOffsetsAndNoExif() throws Exception {
         File f=fixture(16,16,1,false),out=target();
         try(FileChannel in=read(f)) { DngCompactor.compact(in,out,new Codec(),GO,1);try(FileChannel b=read(out)){DngCompactor.verify(in,b,new Codec(),GO);} }
+    }
+    @Test public void progressFollowsVerifiedTilesAndPreservesIndependentVerification() throws Exception {
+        File source=fixture(280,264,1,true),out=target();Codec codec=new Codec();List<Integer> progress=new ArrayList<>();
+        try(FileChannel in=read(source)) {
+            DngCompactor.compact(in,out,codec,GO,2,(done,total)-> {
+                assertEquals(4,total);assertTrue(codec.decodes.get()>=2*done);progress.add(done);
+            });
+            try(FileChannel replacement=read(out)) { DngCompactor.verify(in,replacement,codec,GO); }
+        }
+        assertEquals(Arrays.asList(0,1,2,3,4),progress);assertEquals(16,codec.decodes.get());
+    }
+    @Test public void libraryInspectionNeverReadsPreviewOrTilePayloads() throws Exception {
+        File f=fixture(280,264,1,true);TiffTestReader t=new TiffTestReader(Files.readAllBytes(f.toPath()));
+        Map<Integer,TiffTestReader.Tag> raw=t.ifd(t.root().get(330).first());
+        List<long[]> forbidden=new ArrayList<>();
+        long thumb=t.root().get(273).first();forbidden.add(new long[]{thumb,thumb+t.root().get(279).first()});
+        long[] offsets=raw.get(324).integers(),counts=raw.get(325).integers();
+        for(int i=0;i<offsets.length;i++) forbidden.add(new long[]{offsets[i],offsets[i]+counts[i]});
+        try(FileChannel in=new HeaderChannel(read(f),forbidden)) {
+            DngCompactor.Header h=DngCompactor.inspect(in);assertEquals(1,h.effort);assertNull(h.skipReason);
+            assertNull(DngCompactor.skipReason(in));
+        }
+    }
+    /** Fail immediately on payload I/O, including reads whose result is discarded. */
+    static final class HeaderChannel extends FileChannel {
+        final FileChannel delegate;final List<long[]> forbidden;
+        HeaderChannel(FileChannel delegate,List<long[]> forbidden) { this.delegate=delegate;this.forbidden=forbidden; }
+        public int read(ByteBuffer dst,long pos)throws IOException {
+            for(long[] r:forbidden) assertFalse("Payload read at "+pos,pos<r[1] && pos+dst.remaining()>r[0]);
+            return delegate.read(dst,pos);
+        }
+        public long size()throws IOException { return delegate.size(); }
+        protected void implCloseChannel()throws IOException { delegate.close(); }
+        public int read(ByteBuffer b) { throw new UnsupportedOperationException(); }
+        public long read(ByteBuffer[] b,int o,int n) { throw new UnsupportedOperationException(); }
+        public int write(ByteBuffer b) { throw new UnsupportedOperationException(); }
+        public int write(ByteBuffer b,long p) { throw new UnsupportedOperationException(); }
+        public long write(ByteBuffer[] b,int o,int n) { throw new UnsupportedOperationException(); }
+        public long position() { throw new UnsupportedOperationException(); }
+        public FileChannel position(long p) { throw new UnsupportedOperationException(); }
+        public FileChannel truncate(long s) { throw new UnsupportedOperationException(); }
+        public void force(boolean m) { throw new UnsupportedOperationException(); }
+        public long transferTo(long p,long n,WritableByteChannel c) { throw new UnsupportedOperationException(); }
+        public long transferFrom(ReadableByteChannel c,long p,long n) { throw new UnsupportedOperationException(); }
+        public MappedByteBuffer map(MapMode m,long p,long s) { throw new UnsupportedOperationException(); }
+        public FileLock lock(long p,long s,boolean shared) { throw new UnsupportedOperationException(); }
+        public FileLock tryLock(long p,long s,boolean shared) { throw new UnsupportedOperationException(); }
+    }
+    @Test public void previewsFromBothWritersReadOnlyTheirRgbStrip() throws Exception {
+        File linear=fixture(16,16,1,true),cfa=folder.newFile();
+        DngParams p=DngWriterTest.params(2,true);
+        try(OutputStream out=new FileOutputStream(cfa)) {
+            DngWriter.writeRaw16(out,ByteBuffer.allocate(p.width*p.height*2),p.width*2,p);
+        }
+        for(File f:Arrays.asList(linear,cfa)) {
+            TiffTestReader t=new TiffTestReader(Files.readAllBytes(f.toPath()));
+            int rawAt=t.root().get(330).first();Map<Integer,TiffTestReader.Tag> raw=t.ifd(rawAt);
+            List<long[]> forbidden=new ArrayList<>();forbidden.add(new long[]{rawAt,rawAt+6+12*t.u16(rawAt)});
+            long[] offsets=raw.get(324).integers(),counts=raw.get(325).integers();
+            for(int i=0;i<offsets.length;i++) forbidden.add(new long[]{offsets[i],offsets[i]+counts[i]});
+            try(FileChannel in=new HeaderChannel(read(f),forbidden)) {
+                DngCompactor.Preview preview=DngCompactor.preview(in);
+                assertEquals(t.root().get(256).first(),preview.width);assertEquals(t.root().get(257).first(),preview.height);
+                assertArrayEquals(blob(t,t.root().get(273).first(),t.root().get(279).first()),preview.rgb);
+            }
+        }
     }
     @Test public void xmpBlobIsPreservedExactly() throws Exception {
         File f=fixture(16,16,1,true);byte[] bytes=Files.readAllBytes(f.toPath());TiffTestReader t=new TiffTestReader(bytes);

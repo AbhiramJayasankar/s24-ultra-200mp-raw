@@ -40,8 +40,13 @@ compressed with lossless JPEG XL.
   crash-safe journal.
 - **Fast on the phone.** About 19 s per 200MP photo on a Snapdragon 8 Gen 3,
   using native C++ kernels that match the Java reference bit for bit.
+- **Lowest ISO by default.** 200MP auto exposure stays at ISO 12, the sensor's
+  minimum, and lengthens the shutter first (up to 1/8.5 s) before raising ISO.
 - **Manual ISO and shutter speed.** Drag the dials over the viewfinder in third
   stops, or leave either on auto.
+- **Photos screen.** See every DNG the app saved, how much space each takes and
+  whether it has been compressed yet; open photos in Lightroom or delete them in a
+  few taps. Live background-compression status with a "Compress now" button.
 - **50MP modes too.** 50MP main and 50MP 5× telephoto RAW, as DNG.
 
 ## Requirements
@@ -52,6 +57,12 @@ compressed with lossless JPEG XL.
 | Build machine | Windows, macOS or Linux with JDK 17+, Android SDK platform 36, NDK `30.0.16248370`, CMake `4.1.2` |
 | Editing | Adobe Lightroom / Camera Raw with JPEG XL DNG support (DNG 1.7, 2023 or newer) |
 | Storage | About 225 MB per 200MP photo; the app wants about 780 MB free before a shot |
+
+## Download
+
+A prebuilt APK is attached to each [release](https://github.com/AbhiramJayasankar/s24-ultra-200mp-raw/releases)
+(alpha: expect rough edges). Install it with `adb install -r` or by opening it on
+the phone. To build it yourself, follow the steps below.
 
 ## Build and install
 
@@ -96,16 +107,26 @@ key, so it installs without extra setup.
 2. Pick **200 Main**, **50 Main** or **50 5× tele**.
 3. Hold still and press the shutter. A 200MP DNG takes about 19 s to save; the
    viewfinder pauses while it saves and the ring shows progress.
-4. Find the photos in `Pictures/S24 HighRes` and open them in Lightroom.
+4. Tap the thumbnail next to the shutter to open the **Photos** screen: total
+   size, free space, compression status, and every photo with its size. Tap a
+   photo to open it in Lightroom; tap **Select** to delete photos. The files live
+   in `Pictures/S24 HighRes`.
 
-**Exposure (200MP).** The app meters the viewfinder itself. Drag the **ISO** or
+**Holding still.** A photo is one exposure, as long as the shutter speed. Hold
+still until the viewfinder freezes; the processing afterwards works on that frame,
+so you can move. At ISO 12 indoor shutter speeds get long, so brace the phone or
+raise ISO if photos come out soft.
+
+**Exposure (200MP).** The app meters the viewfinder itself and keeps ISO at 12
+when it can. Drag the **ISO** or
 **shutter** dial sideways to set it manually in third stops (right is brighter);
 tap a dial to switch between Auto and Manual. With one dial on manual, the meter
 sets the other.
 
 **Background compression.** Leave the phone charging and the app shrinks its
 DNGs in the background. It skips files that are still being written and stops
-when the phone gets warm.
+when the phone gets warm. The Photos screen shows what it is doing; **Compress
+now** starts it without waiting for the charger.
 
 ## How it works
 

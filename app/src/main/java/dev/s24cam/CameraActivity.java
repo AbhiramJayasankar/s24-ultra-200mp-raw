@@ -42,13 +42,14 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
     private ImageView lastShot;
     private final Ui.ModeTile[] tiles = new Ui.ModeTile[Mode.values().length];
     private final ExecutorService saver = Executors.newSingleThreadExecutor();
+    private final ExecutorService library = Executors.newSingleThreadExecutor();
 
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable meter = this::meter;
     private long exposureNs = 33_000_000L;
     private int iso = 400;
     /** Third stops offered by the dials; clamped to what the sensor reports. */
-    private static final int[] ISO_STOPS = {50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640,
+    private static final int[] ISO_STOPS = {12, 16, 20, 25, 32, 40, 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640,
             800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
     private static final String[] SHUTTER_LABELS = {"1/8000", "1/6400", "1/5000", "1/4000", "1/3200",
             "1/2500", "1/2000", "1/1600", "1/1250", "1/1000", "1/800", "1/640", "1/500", "1/400", "1/320",
@@ -59,6 +60,8 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
     private Ui.ExposureDial isoDial, shutterDial;
     private View exposureBar;
 
+    /** Camera preview buffer, landscape 4:3; the view shows it rotated as 3:4. */
+    private static final int PREVIEW_W = 1440, PREVIEW_H = 1080;
     private Mode mode = Mode.MAIN_200;
     private boolean torch, saving, resumed;
 
@@ -107,11 +110,15 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
         viewfinder = new TextureView(this);
         viewfinder.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
-                st.setDefaultBufferSize(1440, 1080);
+                st.setDefaultBufferSize(PREVIEW_W, PREVIEW_H);
                 previewSurface = new Surface(st);
                 openIfReady();
             }
-            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) { }
+            // TextureView resets the buffer to the view size (portrait) on every relayout;
+            // a camera opened after that would squeeze 4:3 landscape into it.
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) {
+                st.setDefaultBufferSize(PREVIEW_W, PREVIEW_H);
+            }
             @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture st) {
                 camera.close();
                 previewSurface = null;
@@ -164,7 +171,9 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
                 o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), Ui.dp(CameraActivity.this, 6));
             }
         });
-        lastShot.setContentDescription("Last photo");
+        lastShot.setContentDescription("Photos taken with this app");
+        lastShot.setBackgroundColor(0xFF15171A);
+        lastShot.setOnClickListener(v -> startActivity(new Intent(this, GalleryActivity.class)));
         int t = (int) Ui.dp(this, 48);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(t, t, Gravity.CENTER_VERTICAL | Gravity.START);
         lp.leftMargin = pad * 2;
@@ -224,7 +233,7 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
         android.util.Range<Integer> r = camera.isoRange();
         i = Math.max(0, Math.min(ISO_STOPS.length - 1, i));
         while (r != null && i > 0 && ISO_STOPS[i] > r.getUpper()) i--;
-        while (r != null && i < ISO_STOPS.length - 1 && ISO_STOPS[i] < Math.max(50, r.getLower())) i++;
+        while (r != null && i < ISO_STOPS.length - 1 && ISO_STOPS[i] < r.getLower()) i++;
         return i;
     }
 
@@ -284,6 +293,7 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        showLatestPhoto();
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
             return;
@@ -310,13 +320,25 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
     protected void onDestroy() {
         camera.release();
         saver.shutdown();
+        library.shutdownNow();
         super.onDestroy();
+    }
+
+    /** The thumbnail next to the shutter opens the photo list, so show the newest photo there. */
+    private void showLatestPhoto() {
+        if (saving) return;
+        int px = (int) Ui.dp(this, 48);
+        library.execute(() -> {
+            java.util.List<PhotoLibrary.Photo> all = PhotoLibrary.list(getApplicationContext());
+            Bitmap b = all.isEmpty() ? null : PhotoLibrary.thumbnail(getApplicationContext(), all.get(0), px);
+            runOnUiThread(() -> { if (!saving) lastShot.setImageBitmap(b); });
+        });
     }
 
     private void openIfReady() {
         if (!resumed || previewSurface == null || saving
                 || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return;
-        camera.open(mode, previewSurface);
+        camera.open(mode, previewSurface, viewfinder.getSurfaceTexture(), PREVIEW_W, PREVIEW_H);
         if (torch) camera.setTorch(true);
     }
 
@@ -357,18 +379,21 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
                 double ratio = Math.sqrt(Math.min(8, Math.max(0.125, 0.18 / Math.max(linear, 1e-4))));
                 if (Math.abs(ratio - 1) > 0.08 && !(manualIso && manualShutter)) {
                     android.util.Range<Integer> range = camera.isoRange();
-                    int isoMin = Math.max(50, range == null ? 50 : range.getLower());
+                    int isoMin = range == null ? 50 : range.getLower();
                     int isoMax = range == null ? 3200 : range.getUpper();
+                    // Camera 20 reports 1/8.5 s as its longest standard exposure.
+                    android.util.Range<Long> times = camera.exposureRange();
+                    long maxExposure = times == null ? 117_000_000L : Math.min(1_000_000_000L, times.getUpper());
                     double total = exposureNs * (double) iso * ratio;
                     if (manualIso) {
                         // Shutter priority's mirror: ISO is fixed, the shutter follows the scene.
-                        exposureNs = (long) Math.min(125_000_000L, Math.max(125_000L, total / iso));
+                        exposureNs = (long) Math.min(maxExposure, Math.max(125_000L, total / iso));
                     } else if (manualShutter) {
                         iso = (int) Math.round(Math.min(isoMax, Math.max(isoMin, total / exposureNs)));
                     } else {
-                        long exp = (long) Math.min(33_000_000L, Math.max(1_000_000L, total / 100));
-                        double needIso = total / exp;
-                        if (needIso > isoMax) exp = (long) Math.min(125_000_000L, total / isoMax);
+                        // Lowest ISO first (ISO 12 on the HP2): lengthen the shutter up to
+                        // the sensor's longest exposure, and only then raise ISO.
+                        long exp = (long) Math.min(maxExposure, Math.max(125_000L, total / isoMin));
                         iso = (int) Math.round(Math.min(isoMax, Math.max(isoMin, total / exp)));
                         exposureNs = exp;
                     }
@@ -388,7 +413,7 @@ public class CameraActivity extends Activity implements HighResCamera.Listener {
                 ui.postDelayed(meter, 500);
             }
             if (!saving) setStatus(m.sixteenCell
-                    ? "Saves a 200MP DNG from the full 16-cell readout. Hold still, saving takes a while."
+                    ? "Saves a 200MP DNG from the full 16-cell readout. Hold still until the viewfinder freezes; you can move while it saves."
                     : "Saves a 50MP DNG from the full-resolution readout.", Ui.SLATE);
         });
     }

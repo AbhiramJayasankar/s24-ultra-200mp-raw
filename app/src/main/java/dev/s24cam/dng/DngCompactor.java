@@ -44,13 +44,80 @@ public final class DngCompactor {
         }
     }
 
-    /** Returns a reason without loading a codec, or null if eligible. */
+    /** Header-only eligibility, without loading a codec or preview/tile data. Full validation is repeated by compact. */
     public static String skipReason(FileChannel source) throws IOException {
-        try { Layout.read(source, false); return null; } catch (Skipped e) { return e.getMessage(); }
+        try { Layout.read(source, false,true); return null; } catch (Skipped e) { return e.getMessage(); }
     }
+
+    /** Header-only library inspection: no preview, tile payload or padding reads, no codec. */
+    public static final class Header {
+        public final long effort;
+        public final String skipReason;
+        Header(long effort,String skipReason) { this.effort=effort;this.skipReason=skipReason; }
+    }
+    public static Header inspect(FileChannel source) throws IOException {
+        long effort;
+        try { effort=effort(source); }
+        catch(Skipped e) { return new Header(-1,e.getMessage()); }
+        if(effort>=7) return new Header(effort,"Already compacted");
+        return new Header(effort,skipReason(source));
+    }
+    /** JXLEffort in the raw SubIFD, or -1 when absent. Reads IFDs only. */
+    public static long effort(FileChannel source) throws IOException {
+        Directory root=headerDirectory(source,rootOffset(source),set(330));
+        Tag sub=root.tags.get(330);
+        if(sub==null || sub.type!=4 || sub.count!=1) return -1;
+        Tag effort=headerDirectory(source,sub.first(),set(52554)).tags.get(52554);
+        return effort!=null && effort.type==4 && effort.count==1?effort.first():-1;
+    }
+    public static final class Preview {
+        public final int width,height,orientation;
+        public final byte[] rgb;
+        Preview(int width,int height,int orientation,byte[] rgb) {
+            this.width=width;this.height=height;this.orientation=orientation;this.rgb=rgb;
+        }
+    }
+    /** This app's uncompressed RGB IFD0 preview; reads just the IFD and its one strip. */
+    public static Preview preview(FileChannel source) throws IOException {
+        Directory r=headerDirectory(source,rootOffset(source),set(256,257,258,259,262,273,274,277,278,279,284));
+        r.expect(259,3,1);r.expect(262,3,2);r.expect(277,3,3);r.expect(284,3,1);
+        require(Arrays.equals(r.tag(258,3,3).bytes,new byte[]{8,0,8,0,8,0}),"Preview sample depth");
+        long w=r.value(256,4),h=r.value(257,4);
+        require(w>0 && w<=256 && h>0 && h<=256 && r.value(278,4)==h && r.value(279,4)==w*h*3,"Preview geometry");
+        int orientation=r.tags.containsKey(274)?(int)r.value(274,3):1;
+        require(orientation>=1 && orientation<=8,"Preview orientation");
+        return new Preview((int)w,(int)h,orientation,readBytes(source,r.value(273,4),(int)(w*h*3)));
+    }
+    private static long rootOffset(FileChannel source) throws IOException {
+        byte[] h=readBytes(source,0,8);
+        require(h[0]=='I' && h[1]=='I' && u16(h,2)==42,"Not little-endian classic TIFF");
+        return u32(h,4);
+    }
+    private static Directory headerDirectory(FileChannel source,long at,Set<Integer> wanted) throws IOException {
+        require(at>=8 && (at&1)==0,"Invalid IFD offset");
+        int n=u16(readBytes(source,at,2),0);require(n>0 && n<=100,"Unexpected IFD entry count");
+        byte[] entries=readBytes(source,at,6+12*n);Directory result=new Directory();
+        for(int i=0;i<n;i++) {
+            int p=2+12*i,id=u16(entries,p),type=u16(entries,p+2);long count=u32(entries,p+4);
+            if(!wanted.contains(id)) continue;
+            int unit=type==3?2:type==4?4:0;
+            require(unit!=0 && count>0 && count<=16,"Invalid header tag " + id);
+            int length=(int)count*unit;
+            byte[] data=length<=4?Arrays.copyOfRange(entries,p+8,p+8+length):readBytes(source,u32(entries,p+8),length);
+            require(result.tags.put(id,new Tag(id,type,count,data))==null,"Duplicate header tag");
+        }
+        return result;
+    }
+
+    public interface ProgressListener { void onProgress(int tilesDone,int tilesTotal); }
 
     public static Stats compact(FileChannel source, File target, TileCodec codec, Check check, int workers)
             throws IOException {
+        return compact(source,target,codec,check,workers,null);
+    }
+    /** Progress is called on the coordinator after each first-pass verified tile. */
+    public static Stats compact(FileChannel source, File target, TileCodec codec, Check check, int workers,
+                                ProgressListener progress) throws IOException {
         long started = System.nanoTime();
         Layout layout = Layout.read(source, false);
         check.check();
@@ -62,6 +129,7 @@ public final class DngCompactor {
         try (FileChannel out = FileChannel.open(target.toPath(), StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             long[] offsets = new long[layout.offsets.length], counts = new long[offsets.length];
+            if(progress!=null) progress.onProgress(0,offsets.length);
             long pos = layout.metadataSize();
             while (next < offsets.length || active > 0) {
                 check.check();
@@ -94,6 +162,7 @@ public final class DngCompactor {
                 offsets[tile.index]=pos; counts[tile.index]=tile.bytes.length;
                 write(out,pos,tile.bytes); pos+=tile.bytes.length;
                 if (pos > LIMIT) throw new IOException("Classic TIFF size limit");
+                if(progress!=null) progress.onProgress(next-active,offsets.length);
             }
             if ((pos & 1) != 0) { write(out,pos,new byte[1]); pos++; }
             layout.serialize(out,offsets,counts);
@@ -179,14 +248,18 @@ public final class DngCompactor {
                 50712,50714,50717,50719,50720,50829,52553,52554,52555);
         static final Set<Integer> EXIF=set(33434,33437,34855,34864,34867,36867,37386);
         final FileChannel channel;
+        final long fileSize;
         final List<long[]> extents=new ArrayList<>();
         int metadataBytes;
         Directory root,raw,exif;
         byte[] thumbnail;
         long[] offsets,counts;
         int width,height;
-        Layout(FileChannel channel) { this.channel=channel; }
+        Layout(FileChannel channel) throws IOException { this.channel=channel;fileSize=channel.size(); }
         static Layout read(FileChannel channel,boolean compacted) throws IOException {
+            return read(channel,compacted,false);
+        }
+        static Layout read(FileChannel channel,boolean compacted,boolean headerOnly) throws IOException {
             Layout l=new Layout(channel); l.range(0,8);
             byte[] h=readBytes(channel,0,8);
             require(h[0]=='I' && h[1]=='I' && u16(h,2)==42,"Not little-endian classic TIFF");
@@ -205,7 +278,7 @@ public final class DngCompactor {
             require(tw>0 && tw<=256 && th>0 && th<=256 && r.value(278,4)==th
                     && r.value(279,4)==tw*th*3,"Unexpected thumbnail geometry");
             long thumb=r.value(273,4),length=r.value(279,4);
-            l.range(thumb,length); l.thumbnail=readBytes(channel,thumb,(int)length);
+            l.range(thumb,length); if(!headerOnly) l.thumbnail=readBytes(channel,thumb,(int)length);
             l.raw=l.directory(r.value(330,4),RAW);
             if(r.tags.containsKey(34665)) l.exif=l.directory(r.value(34665,4),EXIF);
             Directory raw=l.raw;
@@ -229,7 +302,7 @@ public final class DngCompactor {
                 require(l.counts[i]>0 && l.counts[i]<=MAX_TILE,"Invalid tile byte count");
                 l.range(l.offsets[i],l.counts[i]);
             }
-            l.coverage();
+            l.coverage(headerOnly);
             return l;
         }
         Directory directory(long at,Set<Integer> allowed) throws IOException {
@@ -255,17 +328,17 @@ public final class DngCompactor {
             return d;
         }
         void range(long at,long length) throws IOException {
-            require(at>=0 && length>0 && at<=channel.size()-length && channel.size()<=LIMIT,"TIFF range outside file");
+            require(at>=0 && length>0 && at<=fileSize-length && fileSize<=LIMIT,"TIFF range outside file");
             extents.add(new long[]{at,at+length});
         }
-        void coverage() throws IOException {
+        void coverage(boolean headerOnly) throws IOException {
             extents.sort(Comparator.comparingLong(a->a[0])); long end=0,gaps=0;
             for(long[] e:extents) {
                 require(e[0]>=end,"Overlapping TIFF ranges");
                 gaps+=e[0]-end; require(gaps<=MAX_METADATA,"Unreferenced TIFF data");
-                zeros(end,e[0]); end=e[1];
+                if(!headerOnly) zeros(end,e[0]); end=e[1];
             }
-            require(channel.size()-end<=16,"Unexpected TIFF trailer"); zeros(end,channel.size());
+            require(fileSize-end<=16,"Unexpected TIFF trailer"); if(!headerOnly) zeros(end,fileSize);
         }
         void zeros(long start,long end) throws IOException {
             while(start<end) { int n=(int)Math.min(8192,end-start); byte[] b=readBytes(channel,start,n);

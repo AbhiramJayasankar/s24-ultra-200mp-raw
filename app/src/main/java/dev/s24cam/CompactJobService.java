@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Persisted charging-only work; JobScheduler owns wakefulness and retry backoff. */
 public final class CompactJobService extends JobService {
-    private static final int JOB_ID=240007;
+    static final int JOB_ID=240007;
     private static final long DELAY=120_000;
     private Run current;
     private static final class Run {
@@ -19,12 +19,19 @@ public final class CompactJobService extends JobService {
     static void schedule(Context context) {
         try {
             JobScheduler scheduler=context.getSystemService(JobScheduler.class);
-            if(scheduler.getPendingJob(JOB_ID)!=null) return;
+            if(scheduler.getPendingJob(JOB_ID)!=null) { CompactStatus.scheduled(context);return; }
             JobInfo job=new JobInfo.Builder(JOB_ID,new ComponentName(context,CompactJobService.class))
                     .setRequiresCharging(true).setRequiresBatteryNotLow(true).setPersisted(true)
                     .setMinimumLatency(DELAY).setBackoffCriteria(5*60_000L,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build();
-            if(scheduler.schedule(job)!=JobScheduler.RESULT_SUCCESS) Log.w(SamsungCam.TAG,"Compact: scheduling rejected");
-        } catch(RuntimeException e) { Log.w(SamsungCam.TAG,"Compact: scheduling failed",e); }
+            if(scheduler.schedule(job)==JobScheduler.RESULT_SUCCESS) CompactStatus.scheduled(context);
+            else {
+                Log.w(SamsungCam.TAG,"Compact: scheduling rejected");
+                CompactStatus.phase(context,CompactStatus.Phase.ERROR,"Could not schedule compression");
+            }
+        } catch(RuntimeException e) {
+            Log.w(SamsungCam.TAG,"Compact: scheduling failed",e);
+            CompactStatus.phase(context,CompactStatus.Phase.ERROR,"Could not schedule compression");
+        }
     }
     static void scheduleOnStart(Context context) {
         Context app=context.getApplicationContext();
@@ -44,7 +51,9 @@ public final class CompactJobService extends JobService {
         return true;
     }
     @Override public boolean onStopJob(JobParameters params) {
-        if(current!=null && current.params==params) { current.cancelled.set(true);current=null; }
+        if(current!=null && current.params==params) {
+            CompactRunner.stop(getApplicationContext(),current.cancelled);current=null;
+        }
         return true;
     }
 }

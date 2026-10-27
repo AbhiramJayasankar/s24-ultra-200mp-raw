@@ -19,7 +19,16 @@ public class SafeDngReplaceTest {
     }
     final class Store implements SafeDngReplace.Store {
         int crash=-1,opens,refreshes,syncs;final List<String> logs=new ArrayList<>();
-        public FileChannel read(String uri)throws IOException {assertEquals("content://media/external/images/media/42",uri);return DngCompactorTest.read(source);}
+        boolean queryFails,readFails;
+        public boolean exists(String uri)throws IOException {
+            if(queryFails) throw new IOException("provider unavailable");
+            return source.exists();
+        }
+        public FileChannel read(String uri)throws IOException {
+            assertEquals("content://media/external/images/media/42",uri);
+            if(readFails) throw new IOException("read access unavailable");
+            return DngCompactorTest.read(source);
+        }
         public void overwrite(String uri,File verified)throws IOException {
             opens++;
             if(crash==0)throw new IOException("crash before overwrite");
@@ -56,6 +65,42 @@ public class SafeDngReplaceTest {
         Files.write(temp.toPath(),new byte[]{1,2,3});store.crash=-1;
         assertThrows(IOException.class,tx::recover);assertEquals(1,store.opens);assertTrue(tx.hasJournal());assertTrue(temp.exists());assertEquals(partial,SafeDngReplace.hash(source));
         Files.delete(temp.toPath());assertThrows(IOException.class,tx::recover);assertTrue(tx.hasJournal());assertEquals(1,store.opens);
+    }
+    @Test public void missingOriginalDiscardsRecoveryFilesWithoutRecreatingIt()throws Exception {
+        for(int point:new int[]{0,1,2,3,4}) {
+            store.crash=point;assertThrows(IOException.class,this::replace);
+            assertNotNull(SafeDngReplace.journalUri(dir));
+            Files.delete(source.toPath());store.crash=-1;
+            int opens=store.opens;
+            tx.recover();tx.recover();
+            assertFalse(source.exists());assertFalse(temp.exists());assertFalse(tx.hasJournal());
+            assertEquals(opens,store.opens);assertNull(SafeDngReplace.journalUri(dir));
+            if(point!=4) {
+                // Reuse the same temporary directory without TemporaryFolder's duplicate-name guard.
+                DngCompactorTest.fixture(source,16,16,1,true);oldHash=SafeDngReplace.hash(source);
+                try(FileChannel in=DngCompactorTest.read(source)) { DngCompactor.compact(in,temp,new DngCompactorTest.Codec(),DngCompactorTest.GO,1); }
+                newHash=SafeDngReplace.hash(temp);store=new Store();tx=new SafeDngReplace(dir,store);
+            }
+        }
+    }
+    @Test public void failedExistenceQueryPreservesPartialOriginalAndRecoveryCopy()throws Exception {
+        store.crash=2;assertThrows(IOException.class,this::replace);
+        String partial=SafeDngReplace.hash(source);store.queryFails=true;
+        assertThrows(IOException.class,tx::recover);
+        assertTrue(tx.hasJournal());assertTrue(temp.exists());assertEquals(partial,SafeDngReplace.hash(source));
+        assertEquals(1,store.opens);
+        store.queryFails=false;store.crash=-1;tx.recover();assertEquals(newHash,SafeDngReplace.hash(source));
+    }
+    @Test public void readFailureIsNeverTreatedAsADeletedOriginal()throws Exception {
+        store.crash=2;assertThrows(IOException.class,this::replace);String partial=SafeDngReplace.hash(source);
+        store.readFails=true;store.crash=-1;assertThrows(IOException.class,tx::recover);
+        assertTrue(tx.hasJournal());assertTrue(temp.exists());assertEquals(partial,SafeDngReplace.hash(source));
+        store.readFails=false;tx.recover();assertEquals(newHash,SafeDngReplace.hash(source));
+    }
+    @Test public void deletedOriginalAndMissingTempDoNotLeaveAnUnrecoverableJournal()throws Exception {
+        store.crash=2;assertThrows(IOException.class,this::replace);
+        Files.delete(source.toPath());Files.delete(temp.toPath());store.crash=-1;
+        tx.recover();assertFalse(tx.hasJournal());assertFalse(source.exists());assertEquals(1,store.opens);
     }
     @Test public void diskMismatchAndCancellationPreventJournalAndDestructiveOpen()throws Exception {
         DngCompactorTest.Codec bad=new DngCompactorTest.Codec() {

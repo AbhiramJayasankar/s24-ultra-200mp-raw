@@ -16,6 +16,8 @@ import java.util.regex.*;
 public final class SafeDngReplace {
     public static final long RESERVE = 512L * 1024 * 1024;
     public interface Store {
+        /** Authoritative existence check. Throw on query/access failure; never infer absence from a read error. */
+        boolean exists(String uri) throws IOException;
         FileChannel read(String uri) throws IOException;
         /** Must truncate, copy ALL bytes, fsync, and close, without cooperative cancellation. */
         void overwrite(String uri, File verifiedTemp) throws IOException;
@@ -33,7 +35,18 @@ public final class SafeDngReplace {
     public static boolean enoughSpace(long free,long originalSize) {
         return originalSize>=0 && free>=RESERVE && free-RESERVE>=originalSize;
     }
-    public boolean hasJournal() { return journal.exists(); }
+    public boolean hasJournal() { return !Files.notExists(journal.toPath()); }
+
+    /** For deletion guards. A malformed/unreadable journal must block deletion until repaired. */
+    public static String journalUri(File directory) throws IOException {
+        File journal=new File(directory,"journal.json");
+        if(Files.notExists(journal.toPath())) return null;
+        return readRecord(journal).uri;
+    }
+    private static Record readRecord(File journal) throws IOException {
+        if(journal.length()>16384) throw new IOException("Journal too large; preserving recovery files");
+        return Record.parse(new String(Files.readAllBytes(journal.toPath()),StandardCharsets.UTF_8));
+    }
 
     /** No writes to the destination until temp fsync + hash + independent disk verification. */
     public void replace(String uri, File temp, long originalSize, String originalHash,
@@ -61,9 +74,9 @@ public final class SafeDngReplace {
     /** First operation of every run, before thermal/cancellation checks or new compactions. */
     public void recover() throws IOException {
         if(!hasJournal()) { cleanOrphans(); return; }
-        if(journal.length()>16384) throw new IOException("Journal too large; preserving recovery files");
-        Record r=Record.parse(new String(Files.readAllBytes(journal.toPath()),StandardCharsets.UTF_8));
+        Record r=readRecord(journal);
         checkedTemp(new File(r.temp));
+        if(cleanMissing(r)) return;
         String current=hashOriginal(r.uri);
         if(current.equals(r.newHash)) {
             store.log("recovery: overwrite complete; refreshing and cleaning up");
@@ -87,12 +100,21 @@ public final class SafeDngReplace {
         cleanup(r);
     }
     private void cleanup(Record r) throws IOException {
+        if(cleanMissing(r)) return;
         // Recheck even on cleanup paths. NEVER delete the recovery copy for a partial original.
         String current=hashOriginal(r.uri);
         if(!current.equals(r.originalHash) && !current.equals(r.newHash))
             throw new IOException("Original changed before cleanup; retaining recovery copy");
         Files.deleteIfExists(journal.toPath()); store.syncDirectory(directory);
         Files.deleteIfExists(checkedTemp(new File(r.temp)).toPath()); store.syncDirectory(directory);
+    }
+    private boolean cleanMissing(Record r) throws IOException {
+        if(store.exists(r.uri)) return false;
+        store.log("recovery: original was deleted; discarding journal and temp");
+        // Same durable ordering as normal cleanup. Absence is confirmed, not a failed open/hash.
+        Files.deleteIfExists(journal.toPath()); store.syncDirectory(directory);
+        Files.deleteIfExists(checkedTemp(new File(r.temp)).toPath()); store.syncDirectory(directory);
+        return true;
     }
     private File checkedTemp(File file) throws IOException {
         File f=file.getCanonicalFile();

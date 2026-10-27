@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.0 - 2026-10-27
+
+### Added
+- Photos screen: tap the thumbnail next to the shutter to see every DNG the app
+  has saved, with the total size, free space on the phone, and each photo's date,
+  mode, size and compression state. Select photos to delete them (with a
+  confirmation showing the space freed); tap a photo to open it in Lightroom or
+  another app. Photos being saved or compressed can't be deleted.
+- Background compression status on the Photos screen: running (with tile
+  progress), waiting for the charger, paused because the phone is warm, or done,
+  plus the space saved so far and a "Compress now" button.
+- App icon: the sensor's 16-cell colour filter (4x4 green, blue, red, green
+  blocks) on black, with a monochrome layer for themed icons.
+
+### Changed
+- 200MP auto exposure keeps the lowest ISO the sensor offers (ISO 12) and
+  lengthens the shutter first, up to the camera's longest exposure (1/8.5 s);
+  only then does ISO go up. The manual ISO dial now starts at ISO 12.
+- The 200MP hint now says to hold still until the viewfinder freezes; you can
+  move while the photo is processed.
+
+### Fixed
+- The viewfinder could come up stretched after leaving and reopening the app.
+  Android resets the preview buffer to the view's portrait size whenever it
+  rebuilds the viewfinder layer, without telling the app; a camera started after
+  that streamed 1440x1920 instead of 1440x1080. The buffer size is now set on the
+  camera thread right before the stream is created (checked on the phone: 9 of 9
+  reopens via home, recent apps and the Photos screen gave 1440x1080).
+
 ## 0.5.3 - 2026-10-27
 
 ### Added
